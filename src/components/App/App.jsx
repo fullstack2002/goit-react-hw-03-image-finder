@@ -15,6 +15,8 @@ class App extends Component {
     images: [],
     page: 1,
     loading: false,
+    loadMore: false,
+    totalQuantity: 0,
   }
 
   componentDidUpdate(_, prevState) {
@@ -32,6 +34,8 @@ class App extends Component {
         value: inputValue,
         images: [],
         page: 1,
+        totalQuantity: 0,
+        loadMore: false,
       });
     } else {
       this.setState({
@@ -40,43 +44,54 @@ class App extends Component {
     }
   };
 
-   loadMore = () => {
+  loadMore = () => {
     this.setState(prevState => ({ page: prevState.page + 1 }));
   };
 
   fetchImgs = async () => {
+    const { value, page, totalQuantity } = this.state;
+    this.setState({ loading: true });
     try {
-      this.setState({ loading: true });
-      const imgs = await fetchData(this.state.value, this.state.page);
-      imgs.hits.length === 0
-        ? toast(`No results found`)
-        : this.setState(prevState => ({
-            images: [...prevState.images, ...imgs.hits],
-          }));
+      const imgs = await fetchData(value, page);
+
+      if (imgs.totalHits === 0) {
+        toast(`No results found`)
+      }
+
+      const newTotalQuantity = totalQuantity + 12;
+      this.setState(({ images }) => {
+        return {
+          images: [...images, ...imgs.hits],
+          totalQuantity: newTotalQuantity,
+        }
+      });
+      
+      if (newTotalQuantity < imgs.totalHits) {
+        this.setState({loadMore: true})
+      }
+      else {
+        this.setState({loadMore: false})
+      }
+
     } catch (error) {
       this.setState({ error });
     } finally {
       this.setState({ loading: false });
-   }
+    }
   };
-  
+
+
   render() {
-    const { images, loading } = this.state;
+    const { images, loading, loadMore } = this.state;
+    const data = Boolean(images.length);
     return (
       <div>
-        <Global styles={GlobalStyles}/>
+        <Global styles={GlobalStyles} />
         <Searchbar onSubmit={this.addValue} />
-        {loading && images.length === 0 ? (
-          <Loader />
-        ) : (
-          <ImageGallery items={images} />
-        )}
-        {images.length % 2 === 0 && images.length !== 0 ? (
-          <Button onClick={this.loadMore} />
-        ) : (
-          ''
-        )}
-        <ToastContainer autoClose={5000}/>
+        {data && <ImageGallery items={images} />}
+        {loadMore && <Button onClick={this.loadMore} />}
+        {loading && <Loader/>}
+        <ToastContainer autoClose={5000} />
       </div>
     );
   }
